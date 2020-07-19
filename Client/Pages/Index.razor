@@ -1,0 +1,69 @@
+﻿@page "/"
+@using Microsoft.AspNetCore.SignalR.Client
+@using SignalRClr.Shared
+@inject NavigationManager NavigationManager
+@implements IDisposable
+
+<h2>Messages</h2>
+<table class="table-active">
+    <thead>
+        <tr>
+            <th>User Name</th>
+            <th>Text</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach(var message in _messages)
+        {
+            <tr>
+                <td>@message.UserName</td>
+                <td>@message.Text</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<h2>Send a Message</h2>
+
+<EditForm Model="@_message" OnValidSubmit="SendMessage">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+    <h3>User Name</h3>
+    <input @bind="@_message.UserName" placeholder="User Name" class="input-group-text" />
+    <h3>Text</h3>
+    <input @bind="@_message.Text" placeholder="User Name" class="input-group-text" />
+    <br />
+    <button class="btn btn-primary" type="submit">Send Message</button>
+</EditForm>
+
+
+@code {
+    private HubConnection _hubConnection;
+    private List<Message> _messages = new List<Message>();
+    private Message _message = new Message();
+
+    protected override async Task OnInitializedAsync(){
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl(NavigationManager.ToAbsoluteUri("/messageHub"))
+            .Build();
+
+        _hubConnection.On<Message>("ReceiveMessage",
+            (message)=>{
+                _messages.Add(message);
+                StateHasChanged();
+        });
+        await _hubConnection.StartAsync();
+    }
+
+    public async Task SendMessage()
+    {        
+        await _hubConnection.SendAsync("SendMessage", _message);
+        _message = new Message();
+    }
+    
+    public void Dispose()
+    {
+        _ = _hubConnection?.DisposeAsync();
+
+    }
+}
